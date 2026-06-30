@@ -1,3 +1,4 @@
+
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   darkMode: "class",
@@ -6,13 +7,13 @@ module.exports = {
     extend: {
       colors: {
         primary: {
-          DEFAULT: "#22D3C5",
+          DEFAULT: "rgb(var(--color-primary) / <alpha-value>)",
           50: "#EAFFFC",
           100: "#CFFBF6",
           200: "#9FF5EC",
           300: "#67E9DD",
           400: "#3BDCCC",
-          500: "#22D3C5",
+          500: "rgb(var(--color-primary) / <alpha-value>)",
           600: "#16A89D",
           700: "#13837C",
           800: "#136663",
@@ -23,18 +24,34 @@ module.exports = {
           600: "#00B98D",
         },
         navy: {
-          DEFAULT: "#071226",
-          50: "#EEF1F6",
-          100: "#D6DCE8",
-          200: "#A9B5CC",
-          300: "#7B89AF",
-          400: "#4C5C8F",
-          500: "#2C3A66",
-          600: "#1A2647",
-          700: "#101A33",
-          800: "#0B1322",
-          900: "#071226",
-          950: "#040A17",
+          DEFAULT: "rgb(var(--navy-900) / <alpha-value>)",
+          50:  "rgb(var(--navy-50)  / <alpha-value>)",
+          100: "rgb(var(--navy-100) / <alpha-value>)",
+          200: "rgb(var(--navy-200) / <alpha-value>)",
+          300: "rgb(var(--navy-300) / <alpha-value>)",
+          400: "rgb(var(--navy-400) / <alpha-value>)",
+          500: "rgb(var(--navy-500) / <alpha-value>)",
+          600: "rgb(var(--navy-600) / <alpha-value>)",
+          700: "rgb(var(--navy-700) / <alpha-value>)",
+          800: "rgb(var(--navy-800) / <alpha-value>)",
+          900: "rgb(var(--navy-900) / <alpha-value>)",
+          950: "rgb(var(--navy-950) / <alpha-value>)",
+        },
+        // Override Tailwind's built-in white so text-white / bg-white/5 / border-white/10 flip with theme
+        white: "rgb(var(--ui-white) / <alpha-value>)",
+        // Override Tailwind's built-in slate scale used throughout (text-slate-400 etc.)
+        slate: {
+          50:  "#f8fafc",
+          100: "#f1f5f9",
+          200: "rgb(var(--ui-slate-200) / <alpha-value>)",
+          300: "rgb(var(--ui-slate-300) / <alpha-value>)",
+          400: "rgb(var(--ui-slate-400) / <alpha-value>)",
+          500: "rgb(var(--ui-slate-500) / <alpha-value>)",
+          600: "rgb(var(--ui-slate-600) / <alpha-value>)",
+          700: "rgb(var(--ui-slate-700) / <alpha-value>)",
+          800: "#1e293b",
+          900: "#0f172a",
+          950: "#020617",
         },
         silver: "#E5E7EB",
       },

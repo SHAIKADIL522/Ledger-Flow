@@ -22,33 +22,51 @@ const SIZES = {
   lg: "h-14 px-8 text-base rounded-xl",
 };
 
-/**
- * Premium, accessible button with shimmer-on-hover for the primary variant.
- * Meets 44px+ touch target minimum at md/lg sizes.
- */
 const Button = forwardRef(
-  ({ children, variant = "primary", size = "md", loading = false, disabled, className, icon: Icon, ...props }, ref) => {
+  (
+    {
+      children,
+      variant = "primary",
+      size = "md",
+      loading = false,
+      disabled,
+      className,
+      icon: Icon,
+      ...props
+    },
+    ref
+  ) => {
+    const isDisabled = disabled || loading;
+
     return (
       <button
         ref={ref}
-        disabled={disabled || loading}
+        disabled={isDisabled}
         className={clsx(
-          "relative inline-flex items-center justify-center gap-2 font-semibold overflow-hidden",
-          "transition-all duration-200 active:translate-y-[1px] disabled:opacity-50 disabled:cursor-not-allowed",
+          "group relative inline-flex items-center justify-center gap-2 font-semibold overflow-hidden",
+          "transition-all duration-200 active:translate-y-[1px]",
+          "disabled:opacity-50 disabled:cursor-not-allowed",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 focus-visible:ring-offset-2 focus-visible:ring-offset-navy-950",
-          "cursor-pointer touch-manipulation",
+          "cursor-pointer touch-manipulation select-none",
           VARIANTS[variant],
           SIZES[size],
           className
         )}
         {...props}
       >
-        {loading && <Loader2 className="size-4 animate-spin" aria-hidden="true" />}
-        {!loading && Icon && <Icon className="size-4" aria-hidden="true" />}
-        <span className="relative z-10">{children}</span>
-        {variant === "primary" && !disabled && !loading && (
-          <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/25 to-transparent group-hover:animate-shimmer pointer-events-none" />
+        {variant === "primary" && !isDisabled && (
+          <span
+            aria-hidden="true"
+            className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/25 to-transparent group-hover:animate-shimmer pointer-events-none"
+          />
         )}
+        {loading && (
+          <Loader2 className="relative z-10 size-4 animate-spin shrink-0" aria-hidden="true" />
+        )}
+        {!loading && Icon && (
+          <Icon className="relative z-10 size-4 shrink-0" aria-hidden="true" />
+        )}
+        {children}
       </button>
     );
   }

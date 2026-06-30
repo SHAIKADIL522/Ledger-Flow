@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { Bell, CheckCircle2 } from "lucide-react";
 import { Card } from "@/components/ui/Primitives";
 import Button from "@/components/ui/Button";
+import Toggle from "@/components/ui/Toggle";
 import { api } from "@/lib/api";
 
 const NOTIF_ITEMS = [
@@ -20,25 +21,6 @@ const DEFAULTS = {
   invoicePaid: true, invoiceOverdue: true, newClient: true,
   weeklySummary: true, monthlyReport: false, marketingEmails: false, browserNotifs: false,
 };
-
-function Toggle({ checked, onChange }) {
-  return (
-    <button
-      type="button"
-      onClick={() => onChange(!checked)}
-      aria-pressed={checked}
-      className={`relative w-10 h-[22px] rounded-full transition-colors cursor-pointer shrink-0 ${
-        checked ? "bg-primary" : "bg-white/10"
-      }`}
-    >
-      <span
-        className={`absolute top-[3px] size-4 rounded-full bg-white shadow transition-transform ${
-          checked ? "translate-x-5" : "translate-x-[3px]"
-        }`}
-      />
-    </button>
-  );
-}
 
 export default function NotificationsSection() {
   const [prefs,  setPrefs]  = useState(DEFAULTS);

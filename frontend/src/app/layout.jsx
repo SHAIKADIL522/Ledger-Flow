@@ -1,29 +1,57 @@
-"use client";
+import { Inter } from "next/font/google";
+import "./globals.css";
+import QueryProvider from "@/providers/QueryProvider";
+import { cookies } from "next/headers";
 
-import { useState } from "react";
-import { Menu } from "lucide-react";
-import Sidebar from "@/components/dashboard/Sidebar";
-import Topbar from "@/components/dashboard/Topbar";
-import AIChatPanel from "@/components/ai/AIChatPanel";
+const inter = Inter({ subsets: ["latin"] });
 
-export default function DashboardLayout({ children }) {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+export const metadata = {
+  title: "LedgerFlow",
+  description: "AI-powered invoicing and financial management",
+};
+
+export default function RootLayout({ children }) {
+  const cookieStore = cookies();
+  const savedTheme = cookieStore.get("lf-theme")?.value || "dark";
+  const savedAccent = cookieStore.get("lf-accent")?.value || "#22D3C5";
+  const htmlClass = savedTheme === "light" ? "light" : "dark";
 
   return (
-    <div className="flex h-screen bg-navy-950 overflow-hidden">
-      {/* Sidebar */}
-      <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-
-      {/* Main */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <Topbar onMenuClick={() => setSidebarOpen(true)} />
-        <main className="flex-1 overflow-y-auto p-6">
+    <html lang="en" className={htmlClass} suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                try {
+                  var theme = localStorage.getItem('lf-theme') || '${savedTheme}';
+                  var accent = localStorage.getItem('lf-accent') || '${savedAccent}';
+                  var root = document.documentElement;
+                  root.classList.remove('dark', 'light');
+                  if (theme === 'system') {
+                    var systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                    root.classList.add(systemDark ? 'dark' : 'light');
+                  } else {
+                    root.classList.add(theme);
+                  }
+                  var hex = accent.replace('#', '');
+                  var r = parseInt(hex.substring(0,2), 16);
+                  var g = parseInt(hex.substring(2,4), 16);
+                  var b = parseInt(hex.substring(4,6), 16);
+                  if (!isNaN(r) && !isNaN(g) && !isNaN(b)) {
+                    root.style.setProperty('--color-primary', r + ' ' + g + ' ' + b);
+                  }
+                } catch (e) {}
+              })();
+            `,
+          }}
+        />
+      </head>
+      <body className={inter.className} suppressHydrationWarning>
+        <QueryProvider>
           {children}
-        </main>
-      </div>
-
-      {/* AI Chat Panel — slides in from right */}
-      <AIChatPanel />
-    </div>
+        </QueryProvider>
+      </body>
+    </html>
   );
 }

@@ -17,7 +17,10 @@ const Input = forwardRef(({ label, error, helperText, className, id, required, .
         ref={ref}
         id={inputId}
         className={clsx(
-          "w-full h-11 px-4 rounded-xl bg-navy-800/60 border text-slate-100 placeholder:text-slate-500",
+          // text-white (not slate-100) — fully covered by our CSS-var override
+          // so it correctly flips dark/light. slate-100 was NOT overridden
+          // and stayed a fixed light grey, invisible on light backgrounds.
+          "w-full h-11 px-4 rounded-xl bg-navy-800/60 border text-white placeholder:text-slate-400",
           "focus:outline-none focus:ring-2 focus:ring-primary-400/60 transition-colors",
           error ? "border-rose-500/60" : "border-white/10 focus:border-primary-400/60",
           className

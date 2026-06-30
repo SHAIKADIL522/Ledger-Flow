@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/dashboard/Sidebar";
 import Topbar from "@/components/dashboard/Topbar";
+import AIChatPanel from "@/components/ai/AIChatPanel";
 import { useAuthStore } from "@/store/authStore";
 import { Loader2 } from "lucide-react";
 
@@ -35,6 +36,7 @@ export default function DashboardLayout({ children }) {
         <Topbar onMenuClick={() => setSidebarOpen(true)} />
         <main className="p-6 md:p-8 max-w-7xl mx-auto">{children}</main>
       </div>
+      <AIChatPanel />
     </div>
   );
 }

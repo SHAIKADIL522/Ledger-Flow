@@ -19,7 +19,7 @@ const Select = forwardRef(({ label, error, options = [], className, id, required
           ref={ref}
           id={selectId}
           className={clsx(
-            "w-full h-11 pl-4 pr-10 rounded-xl bg-navy-800/60 border text-slate-100 appearance-none",
+            "w-full h-11 pl-4 pr-10 rounded-xl bg-navy-800/60 border text-white appearance-none",
             "focus:outline-none focus:ring-2 focus:ring-primary-400/60 transition-colors",
             error ? "border-rose-500/60" : "border-white/10 focus:border-primary-400/60",
             className

@@ -44,6 +44,7 @@ router.get(
 router.put(
   "/profile",
   asyncHandler(async (req, res) => {
+    if (req.body.username) req.body.username = req.body.username.toLowerCase().trim();
     const data = profileSchema.parse(req.body);
 
     if (data.username) {

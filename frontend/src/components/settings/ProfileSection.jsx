@@ -67,7 +67,7 @@ export default function ProfileSection() {
           <Input
             label="Username"
             value={form.username}
-            onChange={f("username")}
+            onChange={(e) => setForm({ ...form, username: e.target.value.toLowerCase().trim() })}
             helperText="ledgerflow.com/u/username"
           />
         </div>
