@@ -46,6 +46,8 @@ model User {
   name               String?
   avatarUrl          String?
   emailVerified      Boolean       @default(false)
+  emailVerifyTokenHash    String?
+  emailVerifyTokenExpires DateTime?
 
   onboardingComplete Boolean       @default(false)
   businessName       String?

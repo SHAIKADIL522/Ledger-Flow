@@ -24,6 +24,34 @@ const BUSINESS_TYPES = [
   { value: "SMALL_BUSINESS", label: "Small Business" },
 ];
 
+const INDUSTRIES = [
+  { value: "DESIGN", label: "Design" },
+  { value: "SOFTWARE", label: "Software / IT" },
+  { value: "CONSULTING", label: "Consulting" },
+  { value: "MARKETING", label: "Marketing & Advertising" },
+  { value: "WRITING", label: "Writing & Content" },
+  { value: "PHOTOGRAPHY", label: "Photography / Video" },
+  { value: "FINANCE", label: "Finance & Accounting" },
+  { value: "LEGAL", label: "Legal" },
+  { value: "HEALTHCARE", label: "Healthcare" },
+  { value: "EDUCATION", label: "Education & Training" },
+  { value: "RETAIL", label: "Retail / E-commerce" },
+  { value: "CONSTRUCTION", label: "Construction & Real Estate" },
+  { value: "OTHER", label: "Other" },
+];
+
+const COUNTRIES = [
+  { value: "INDIA", label: "India" },
+  { value: "UNITED_STATES", label: "United States" },
+  { value: "UNITED_KINGDOM", label: "United Kingdom" },
+  { value: "CANADA", label: "Canada" },
+  { value: "AUSTRALIA", label: "Australia" },
+  { value: "UAE", label: "United Arab Emirates" },
+  { value: "GERMANY", label: "Germany" },
+  { value: "SINGAPORE", label: "Singapore" },
+  { value: "OTHER", label: "Other" },
+];
+
 const FIRST_ACTIONS = [
   { value: "ADD_CLIENT", label: "Add a Client", icon: UserPlus, redirect: "/dashboard/clients?new=1" },
   { value: "CREATE_PROJECT", label: "Create a Project", icon: FolderPlus, redirect: "/dashboard/projects?new=1" },
@@ -39,20 +67,39 @@ export default function OnboardingPage() {
   const [form, setForm] = useState({
     businessName: "",
     industry: "",
+    industryOther: "",
     country: "",
+    countryOther: "",
     businessType: "FREELANCER",
     defaultCurrency: "INR",
     firstAction: "ADD_CLIENT",
   });
 
   const update = (key, value) => setForm((f) => ({ ...f, [key]: value }));
-  const canProceedStep1 = form.businessName.trim() && form.industry.trim() && form.country.trim();
+
+  const industryFinal = form.industry === "OTHER" ? form.industryOther.trim() : form.industry;
+  const countryFinal = form.country === "OTHER" ? form.countryOther.trim() : form.country;
+
+  const canProceedStep1 =
+    form.businessName.trim() &&
+    form.industry &&
+    industryFinal &&
+    form.country &&
+    countryFinal;
 
   const handleFinish = async () => {
     setError("");
     setSubmitting(true);
     try {
-      const data = await api.post("/onboarding", form);
+      const payload = {
+        businessName: form.businessName,
+        industry: industryFinal,
+        country: countryFinal,
+        businessType: form.businessType,
+        defaultCurrency: form.defaultCurrency,
+        firstAction: form.firstAction,
+      };
+      const data = await api.post("/onboarding", payload);
       setUser(data.user);
       const action = FIRST_ACTIONS.find((a) => a.value === form.firstAction);
       router.push(action?.redirect || "/dashboard");
@@ -105,20 +152,47 @@ export default function OnboardingPage() {
               onChange={(e) => update("businessName", e.target.value)}
               placeholder="Acme Studio"
             />
-            <Input
-              label="Industry"
-              required
-              value={form.industry}
-              onChange={(e) => update("industry", e.target.value)}
-              placeholder="Design, Consulting, Software..."
-            />
-            <Input
-              label="Country"
-              required
-              value={form.country}
-              onChange={(e) => update("country", e.target.value)}
-              placeholder="India"
-            />
+
+            <div className="space-y-3">
+              <Select
+                label="Industry"
+                required
+                placeholder="Select an industry"
+                value={form.industry}
+                onChange={(e) => update("industry", e.target.value)}
+                options={INDUSTRIES}
+              />
+              {form.industry === "OTHER" && (
+                <Input
+                  label="Tell us your industry"
+                  required
+                  value={form.industryOther}
+                  onChange={(e) => update("industryOther", e.target.value)}
+                  placeholder="e.g. Architecture"
+                />
+              )}
+            </div>
+
+            <div className="space-y-3">
+              <Select
+                label="Country"
+                required
+                placeholder="Select a country"
+                value={form.country}
+                onChange={(e) => update("country", e.target.value)}
+                options={COUNTRIES}
+              />
+              {form.country === "OTHER" && (
+                <Input
+                  label="Tell us your country"
+                  required
+                  value={form.countryOther}
+                  onChange={(e) => update("countryOther", e.target.value)}
+                  placeholder="e.g. Brazil"
+                />
+              )}
+            </div>
+
             <Select
               label="Business Type"
               required

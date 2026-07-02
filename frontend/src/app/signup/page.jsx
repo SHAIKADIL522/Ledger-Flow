@@ -60,6 +60,7 @@ export default function SignupPage() {
       // If backend requires email verification, show banner instead of redirect
       if (data.requiresVerification) {
         setRegistered(true);
+        router.push(`/verify-email?email=${encodeURIComponent(email)}`);
       } else {
         router.push("/onboarding");
       }

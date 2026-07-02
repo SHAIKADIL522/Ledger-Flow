@@ -10,8 +10,8 @@ export const metadata = {
   description: "AI-powered invoicing and financial management",
 };
 
-export default function RootLayout({ children }) {
-  const cookieStore = cookies();
+export default async function RootLayout({ children }) {
+  const cookieStore = await cookies();
   const savedTheme = cookieStore.get("lf-theme")?.value || "dark";
   const savedAccent = cookieStore.get("lf-accent")?.value || "#22D3C5";
   const htmlClass = savedTheme === "light" ? "light" : "dark";

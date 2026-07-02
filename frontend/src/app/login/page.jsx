@@ -27,8 +27,23 @@ export default function LoginPage() {
   const [remember, setRemember] = useState(true);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [resending, setResending] = useState(false);
+  const [resendMsg, setResendMsg] = useState("");
 
   const emailValid = EMAIL_REGEX.test(email);
+
+  const handleResend = async () => {
+    setResending(true);
+    setResendMsg("");
+    try {
+      await api.post("/auth/resend-verification", { email });
+      setResendMsg("Verification email sent! Check your inbox.");
+    } catch (err) {
+      setResendMsg(err.message || "Failed to resend. Try again.");
+    } finally {
+      setResending(false);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -123,9 +138,19 @@ export default function LoginPage() {
               <div className="p-3 text-sm text-rose-400 bg-rose-950/30 border border-rose-900/40 rounded-lg">
                 {error}
                 {error.includes("verify your email") && (
-                  <Link href="/resend-verification" className="block mt-1 text-primary hover:underline text-xs">
-                    Resend verification email →
-                  </Link>
+                  <button
+                    type="button"
+                    onClick={handleResend}
+                    disabled={resending}
+                    className="block mt-1 text-primary hover:underline text-xs disabled:opacity-50 cursor-pointer"
+                  >
+                    {resending ? "Sending..." : "Resend verification email →"}
+                  </button>
+                )}
+                {resendMsg && (
+                  <p className={`mt-1 text-xs ${resendMsg.includes("sent") ? "text-emerald-400" : "text-rose-400"}`}>
+                    {resendMsg}
+                  </p>
                 )}
               </div>
             )}

@@ -38,11 +38,11 @@ async function sendPasswordResetEmail({ to, name, resetUrl }) {
   });
 }
 
-async function sendVerifyEmail({ to, name, verifyUrl }) {
+async function sendVerifyEmail({ to, name, otp }) {
   return sendEmail({
     to,
-    subject: "Verify your LedgerFlow email",
-    html: verifyEmailTemplate({ name, verifyUrl }),
+    subject: `${otp} is your LedgerFlow verification code`,
+    html: verifyEmailTemplate({ name, otp }),
   });
 }
 

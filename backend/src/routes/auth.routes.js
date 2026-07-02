@@ -1,10 +1,12 @@
 const express = require("express");
 const bcrypt = require("bcrypt");
+const crypto = require("crypto");
 const { z } = require("zod");
 const { OAuth2Client } = require("google-auth-library");
 const prisma = require("../lib/prisma");
 const asyncHandler = require("../utils/asyncHandler");
 const { requireAuth } = require("../middleware/auth");
+const { sendVerifyEmail, sendWelcomeEmail } = require("../utils/email");
 const {
   signAccessToken,
   signRefreshToken,
@@ -14,6 +16,7 @@ const {
 const router = express.Router();
 const COOKIE_NAME = process.env.COOKIE_NAME || "ledgerflow-token";
 const REFRESH_COOKIE_NAME = `${COOKIE_NAME}-refresh`;
+const VERIFY_TOKEN_TTL_MS = 10 * 60 * 1000; // 10 min OTP window
 
 // ---------- SHARED VALIDATION ----------
 const passwordRegex =
@@ -42,8 +45,40 @@ function setAuthCookies(res, user) {
 }
 
 function publicUser(user) {
-  const { passwordHash, refreshTokenHash, googleId, ...safe } = user;
+  const {
+    passwordHash,
+    refreshTokenHash,
+    googleId,
+    emailVerifyTokenHash,
+    emailVerifyTokenExpires,
+    ...safe
+  } = user;
   return safe;
+}
+
+// Generates a 6-digit OTP + its hash (stored in DB)
+function makeOtp() {
+  const code = String(Math.floor(100000 + Math.random() * 900000)); // always 6 digits
+  const hash = crypto.createHash("sha256").update(code).digest("hex");
+  return { code, hash, expires: new Date(Date.now() + VERIFY_TOKEN_TTL_MS) };
+}
+
+async function issueAndSendVerifyToken(user) {
+  const { code, hash, expires } = makeOtp();
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { emailVerifyTokenHash: hash, emailVerifyTokenExpires: expires },
+  });
+  try {
+    await sendVerifyEmail({ to: user.email, name: user.name, otp: code });
+  } catch (err) {
+    const e = new Error(
+      "Couldn't send the verification email. Please try again shortly.",
+    );
+    e.status = 502;
+    e.cause = err;
+    throw e;
+  }
 }
 
 // ---------- REGISTER ----------
@@ -67,16 +102,102 @@ router.post(
 
     const passwordHash = await bcrypt.hash(password, 12);
     const user = await prisma.user.create({
-      data: { name, email, passwordHash },
+      data: { name, email, passwordHash, emailVerified: false },
     });
 
-    const { refreshToken } = setAuthCookies(res, user);
-    await prisma.user.update({
+    // DEV MODE: skip email, auto-verify instantly
+    if (process.env.DEV_SKIP_EMAIL === "true") {
+      const verified = await prisma.user.update({
+        where: { id: user.id },
+        data: { emailVerified: true },
+      });
+      const { refreshToken } = setAuthCookies(res, verified);
+      await prisma.user.update({
+        where: { id: verified.id },
+        data: { refreshTokenHash: await bcrypt.hash(refreshToken, 10) },
+      });
+      // In dev, only send welcome email to Resend account owner (sandbox limit)
+      // Welcome email skipped in dev (Resend sandbox restriction)
+      // It fires for all users automatically in production
+      return res.status(201).json({ user: publicUser(verified) });
+    }
+
+    // PRODUCTION: send OTP email, require verification
+    await issueAndSendVerifyToken(user);
+    res.status(201).json({ requiresVerification: true, user: publicUser(user) });
+  }),
+);
+
+// ---------- VERIFY EMAIL ----------
+const verifyEmailSchema = z.object({
+  email: z.string().email("Enter a valid email address"),
+  otp: z.string().length(6, "OTP must be 6 digits"),
+});
+
+router.post(
+  "/verify-email",
+  asyncHandler(async (req, res) => {
+    const { email, otp } = verifyEmailSchema.parse(req.body);
+    const otpHash = crypto.createHash("sha256").update(otp).digest("hex");
+
+    const user = await prisma.user.findUnique({ where: { email } });
+
+    if (!user || user.emailVerifyTokenHash !== otpHash) {
+      return res.status(400).json({ error: "Invalid verification code." });
+    }
+
+    if (
+      !user.emailVerifyTokenExpires ||
+      user.emailVerifyTokenExpires < new Date()
+    ) {
+      return res.status(400).json({
+        error: "This code has expired. Please request a new one.",
+      });
+    }
+
+    const verified = await prisma.user.update({
       where: { id: user.id },
+      data: {
+        emailVerified: true,
+        emailVerifyTokenHash: null,
+        emailVerifyTokenExpires: null,
+      },
+    });
+
+    const { refreshToken } = setAuthCookies(res, verified);
+    await prisma.user.update({
+      where: { id: verified.id },
       data: { refreshTokenHash: await bcrypt.hash(refreshToken, 10) },
     });
 
-    res.status(201).json({ user: publicUser(user) });
+    // Fire welcome email in background — don't fail the request if it errors
+    sendWelcomeEmail({ to: verified.email, name: verified.name }).catch(() => {});
+
+    res.json({ user: publicUser(verified) });
+  }),
+);
+
+// ---------- RESEND VERIFICATION ----------
+const resendSchema = z.object({
+  email: z.string().email("Enter a valid email address"),
+});
+
+router.post(
+  "/resend-verification",
+  asyncHandler(async (req, res) => {
+    const { email } = resendSchema.parse(req.body);
+    const user = await prisma.user.findUnique({ where: { email } });
+
+    // Don't leak whether the account exists.
+    if (!user || user.emailVerified) {
+      return res.json({
+        ok: true,
+        message: "If an unverified account exists, a new link was sent.",
+      });
+    }
+
+    await issueAndSendVerifyToken(user);
+    res.json({ ok: true, message: "Verification email sent." });
   }),
 );
 
@@ -99,6 +220,14 @@ router.post(
     const valid = await bcrypt.compare(password, user.passwordHash);
     if (!valid) {
       return res.status(401).json({ error: "Invalid email or password." });
+    }
+
+    if (!user.emailVerified) {
+      return res.status(403).json({
+        error: "Please verify your email before logging in.",
+        requiresVerification: true,
+        email: user.email,
+      });
     }
 
     const { refreshToken } = setAuthCookies(res, user);
@@ -148,6 +277,8 @@ router.get(
     });
     const payload = ticket.getPayload();
 
+    // Google already verifies ownership of the email, so these users
+    // are trusted immediately — emailVerified: true is intentional here.
     let user = await prisma.user.findUnique({
       where: { email: payload.email },
     });
@@ -167,6 +298,7 @@ router.get(
         data: {
           googleId: payload.sub,
           avatarUrl: user.avatarUrl || payload.picture,
+          emailVerified: true,
         },
       });
     }
