@@ -185,6 +185,7 @@ router.delete(
 );
 
 // ---------- PDF DOWNLOAD ----------
+const PDF_SIZES = ["A4", "A5", "A6", "LETTER", "LEGAL"];
 router.get(
   "/:id/pdf",
   asyncHandler(async (req, res) => {
@@ -194,8 +195,11 @@ router.get(
     });
     if (!invoice) return res.status(404).json({ error: "Invoice not found" });
 
+    const requested = String(req.query.size || "A4").toUpperCase();
+    const size = PDF_SIZES.includes(requested) ? requested : "A4";
+
     const user = await prisma.user.findUnique({ where: { id: req.userId } });
-    streamInvoicePdf(res, { invoice, user, client: invoice.client });
+    streamInvoicePdf(res, { invoice, user, client: invoice.client }, size);
   })
 );
 

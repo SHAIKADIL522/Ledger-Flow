@@ -55,6 +55,6 @@ export function useDeleteInvoice() {
   });
 }
 
-export function invoicePdfUrl(id) {
-  return `${API_URL}/invoices/${id}/pdf`;
+export function invoicePdfUrl(id, size = "A4") {
+  return `${API_URL}/invoices/${id}/pdf?size=${encodeURIComponent(size)}`;
 }

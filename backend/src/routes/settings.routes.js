@@ -88,6 +88,11 @@ const businessSchema = z.object({
   defaultNotes:    z.string().optional(),
   startingNumber:  z.number().int().optional(),
   logoUrl:         z.string().optional().or(z.literal("")),
+  upiId:            z.string().optional().or(z.literal("")),
+  bankName:         z.string().optional().or(z.literal("")),
+  bankAccountHolder:z.string().optional().or(z.literal("")),
+  bankAccountNumber:z.string().optional().or(z.literal("")),
+  bankIfsc:         z.string().optional().or(z.literal("")),
 });
 
 router.get(
@@ -99,11 +104,19 @@ router.get(
         select: {
           businessName: true, gstNumber: true, country: true,
           defaultCurrency: true, address: true,
+          upiId: true, bankName: true, bankAccountHolder: true,
+          bankAccountNumber: true, bankIfsc: true,
         },
       }),
       prisma.businessSettings.findUnique({ where: { userId: req.userId } }),
     ]);
-    res.json({ business: { ...user, ...(biz || {}) } });
+    const merged = { ...user, ...(biz || {}) };
+    // Nullable Prisma columns come back as `null` when unset — coerce to ""
+    // so every consumer gets clean, controlled-input-safe strings.
+    const clean = Object.fromEntries(
+      Object.entries(merged).map(([k, v]) => [k, v === null ? "" : v])
+    );
+    res.json({ business: clean });
   })
 );
 
@@ -116,6 +129,7 @@ router.put(
       ownerName, businessEmail, businessPhone, website, panNumber,
       state, city, postalCode, invoicePrefix, paymentTerms, defaultTax,
       lateFee, defaultNotes, startingNumber, logoUrl,
+      upiId, bankName, bankAccountHolder, bankAccountNumber, bankIfsc,
     } = data;
 
     const [user] = await Promise.all([
@@ -127,6 +141,11 @@ router.put(
           ...(country      !== undefined && { country }),
           ...(defaultCurrency !== undefined && { defaultCurrency }),
           ...(address      !== undefined && { address }),
+          ...(upiId             !== undefined && { upiId }),
+          ...(bankName          !== undefined && { bankName }),
+          ...(bankAccountHolder !== undefined && { bankAccountHolder }),
+          ...(bankAccountNumber !== undefined && { bankAccountNumber }),
+          ...(bankIfsc          !== undefined && { bankIfsc }),
         },
       }),
       prisma.businessSettings.upsert({

@@ -64,7 +64,12 @@ async function request(
       return request(path, { method, body, headers }, false);
     } catch (err) {
       flushQueue(err);
-      if (typeof window !== "undefined") window.location.href = "/login";
+      if (
+        typeof window !== "undefined" &&
+        window.location.pathname !== "/login"
+      ) {
+        window.location.href = "/login";
+      }
       throw new ApiError("Session expired. Please login again.", 401);
     } finally {
       isRefreshing = false;

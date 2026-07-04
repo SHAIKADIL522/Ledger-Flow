@@ -9,6 +9,14 @@ import { useInvoice, useUpdateInvoiceStatus, useDeleteInvoice, invoicePdfUrl } f
 import { formatCurrency, formatDate } from "@/lib/format";
 
 const STATUS_OPTIONS = ["DRAFT", "SENT", "PAID", "OVERDUE"];
+const PAGE_SIZE_OPTIONS = ["A4", "A5", "A6", "LETTER", "LEGAL"];
+const PAGE_SIZE_MM = {
+  A4: "210mm 297mm",
+  A5: "148mm 210mm",
+  A6: "105mm 148mm",
+  LETTER: "215.9mm 279.4mm",
+  LEGAL: "215.9mm 355.6mm",
+};
 
 // ── Delete confirm modal ───────────────────────────────────────────────────
 function DeleteModal({ invoiceNumber, onConfirm, onCancel, isLoading }) {
@@ -61,6 +69,7 @@ export default function InvoiceDetailPage() {
   const { data, isLoading } = useInvoice(id);
   const updateStatus = useUpdateInvoiceStatus();
   const deleteInvoice = useDeleteInvoice();
+  const [pageSize, setPageSize] = useState("A4");
 
   if (isLoading) return <div className="h-96 animate-pulse bg-white/5 rounded-2xl" />;
   const invoice = data?.invoice;
@@ -126,10 +135,23 @@ export default function InvoiceDetailPage() {
               </option>
             ))}
           </select>
+          <select
+            value={pageSize}
+            onChange={(e) => setPageSize(e.target.value)}
+            title="Paper size for Print / Download PDF"
+            className="h-10 px-3 rounded-lg bg-navy-800/60 border border-white/10 text-sm text-slate-200"
+          >
+            {PAGE_SIZE_OPTIONS.map((s) => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
+          {/* Matches whatever paper size is selected above, so window.print()
+              doesn't fall back to the browser's own default page size. */}
+          <style>{`@media print { @page { size: ${PAGE_SIZE_MM[pageSize]}; margin: 0; } }`}</style>
           <Button variant="secondary" icon={Printer} onClick={() => window.print()}>
             Print
           </Button>
-          <a href={invoicePdfUrl(invoice.id)} target="_blank" rel="noopener noreferrer">
+          <a href={invoicePdfUrl(invoice.id, pageSize)} target="_blank" rel="noopener noreferrer">
             <Button icon={Download}>Download PDF</Button>
           </a>
           <Button

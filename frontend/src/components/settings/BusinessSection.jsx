@@ -24,7 +24,16 @@ export default function BusinessSection() {
 
   useEffect(() => {
     api.get("/settings/business")
-      .then((d) => { if (d.business) setForm((f) => ({ ...f, ...d.business })); })
+      .then((d) => {
+        if (!d.business) return;
+        // Prisma returns unset nullable columns as `null`, not "".
+        // Spreading that directly over the "" defaults flips inputs from
+        // controlled -> uncontrolled and back, which React warns about.
+        const clean = Object.fromEntries(
+          Object.entries(d.business).map(([k, v]) => [k, v ?? ""])
+        );
+        setForm((f) => ({ ...f, ...clean }));
+      })
       .catch(() => {});
   }, []);
 

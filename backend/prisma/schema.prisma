@@ -58,6 +58,15 @@ model User {
   gstNumber          String?
   address            String?
 
+  // Payment details shown on invoices (QR + bank card). All optional —
+  // pdf.js shows an honest "not configured" placeholder when these are unset
+  // instead of fabricating fake bank/UPI data.
+  upiId              String?
+  bankName           String?
+  bankAccountHolder  String?
+  bankAccountNumber  String?
+  bankIfsc           String?
+
   username           String?       @unique
   phone              String?
   language           String        @default("en")

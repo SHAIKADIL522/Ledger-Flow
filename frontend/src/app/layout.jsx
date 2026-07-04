@@ -1,6 +1,7 @@
 import { Inter } from "next/font/google";
 import "./globals.css";
 import QueryProvider from "@/providers/QueryProvider";
+import AuthProvider from "@/providers/AuthProvider";
 import { cookies } from "next/headers";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -49,7 +50,7 @@ export default async function RootLayout({ children }) {
       </head>
       <body className={inter.className} suppressHydrationWarning>
         <QueryProvider>
-          {children}
+          <AuthProvider>{children}</AuthProvider>
         </QueryProvider>
       </body>
     </html>
