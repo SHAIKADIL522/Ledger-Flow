@@ -6,6 +6,7 @@ const { OAuth2Client } = require("google-auth-library");
 const prisma = require("../lib/prisma");
 const asyncHandler = require("../utils/asyncHandler");
 const { requireAuth } = require("../middleware/auth");
+const { authLimiter } = require("../middleware/rateLimiter");
 const { sendVerifyEmail, sendWelcomeEmail } = require("../utils/email");
 const {
   signAccessToken,
@@ -90,6 +91,7 @@ const registerSchema = z.object({
 
 router.post(
   "/register",
+  authLimiter,
   asyncHandler(async (req, res) => {
     const { name, email, password } = registerSchema.parse(req.body);
 
@@ -136,6 +138,7 @@ const verifyEmailSchema = z.object({
 
 router.post(
   "/verify-email",
+  authLimiter,
   asyncHandler(async (req, res) => {
     const { email, otp } = verifyEmailSchema.parse(req.body);
     const otpHash = crypto.createHash("sha256").update(otp).digest("hex");
@@ -184,6 +187,7 @@ const resendSchema = z.object({
 
 router.post(
   "/resend-verification",
+  authLimiter,
   asyncHandler(async (req, res) => {
     const { email } = resendSchema.parse(req.body);
     const user = await prisma.user.findUnique({ where: { email } });
@@ -209,6 +213,7 @@ const loginSchema = z.object({
 
 router.post(
   "/login",
+  authLimiter,
   asyncHandler(async (req, res) => {
     const { email, password } = loginSchema.parse(req.body);
 
@@ -310,6 +315,9 @@ router.get(
 );
 
 // ---------- REFRESH ----------
+// NOTE: no authLimiter here on purpose — this fires on every access-token
+// cycle (every ~15 min per active tab, plus once on every 401), so sharing
+// the login/register budget causes legitimate sessions to get locked out.
 router.post(
   "/refresh",
   asyncHandler(async (req, res) => {
@@ -376,6 +384,8 @@ router.post(
 );
 
 // ---------- ME ----------
+// NOTE: no authLimiter here either — fires on every dashboard mount/route
+// change, and would exhaust the same budget as login/register.
 router.get(
   "/me",
   requireAuth,
@@ -395,6 +405,7 @@ const changePasswordSchema = z.object({
 router.post(
   "/change-password",
   requireAuth,
+  authLimiter,
   asyncHandler(async (req, res) => {
     const { currentPassword, newPassword } = changePasswordSchema.parse(
       req.body,

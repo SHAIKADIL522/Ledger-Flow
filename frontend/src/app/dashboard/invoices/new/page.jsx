@@ -172,41 +172,61 @@ export default function NewInvoicePage() {
 
             <div className="space-y-3">
               <label className="block text-sm font-medium text-slate-300">Line Items</label>
-              {items.map((item, idx) => (
-                <div key={idx} className="grid grid-cols-12 gap-2 items-start">
-                  <input
-                    value={item.description}
-                    onChange={(e) => updateItem(idx, "description", e.target.value)}
-                    placeholder="Description"
-                    className="col-span-6 h-11 px-3 rounded-lg bg-navy-800/60 border border-white/10 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-primary-400/60"
-                  />
-                  <input
-                    type="number"
-                    min="0"
-                    value={item.quantity}
-                    onChange={(e) => updateItem(idx, "quantity", e.target.value)}
-                    placeholder="Qty"
-                    className="col-span-2 h-11 px-3 rounded-lg bg-navy-800/60 border border-white/10 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary-400/60"
-                  />
-                  <input
-                    type="number"
-                    min="0"
-                    value={item.unitPrice}
-                    onChange={(e) => updateItem(idx, "unitPrice", e.target.value)}
-                    placeholder="Unit price"
-                    className="col-span-3 h-11 px-3 rounded-lg bg-navy-800/60 border border-white/10 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary-400/60"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => removeItem(idx)}
-                    disabled={items.length === 1}
-                    className="col-span-1 h-11 flex items-center justify-center text-slate-500 hover:text-rose-400 disabled:opacity-30 cursor-pointer"
-                    aria-label="Remove line item"
-                  >
-                    <Trash2 className="size-4" />
-                  </button>
-                </div>
-              ))}
+
+              {/* Column headers — hidden on very small screens where the row wraps */}
+              <div className="hidden sm:grid grid-cols-12 gap-2 px-1 text-xs font-medium text-slate-500">
+                <span className="col-span-5">Description</span>
+                <span className="col-span-2">Qty</span>
+                <span className="col-span-2">Unit Price</span>
+                <span className="col-span-2">Line Total</span>
+                <span className="col-span-1" />
+              </div>
+
+              {items.map((item, idx) => {
+                const lineTotal = (Number(item.quantity) || 0) * (Number(item.unitPrice) || 0);
+                return (
+                  <div key={idx} className="grid grid-cols-12 gap-2 items-start">
+                    <input
+                      value={item.description}
+                      onChange={(e) => updateItem(idx, "description", e.target.value)}
+                      placeholder="Description"
+                      className="col-span-12 sm:col-span-5 h-11 px-3 rounded-lg bg-navy-800/60 border border-white/10 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-primary-400/60"
+                    />
+                    <input
+                      type="number"
+                      min="0"
+                      value={item.quantity}
+                      onChange={(e) => updateItem(idx, "quantity", e.target.value)}
+                      placeholder="Qty"
+                      className="col-span-3 sm:col-span-2 h-11 px-3 rounded-lg bg-navy-800/60 border border-white/10 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary-400/60"
+                    />
+                    <input
+                      type="number"
+                      min="0"
+                      value={item.unitPrice}
+                      onChange={(e) => updateItem(idx, "unitPrice", e.target.value)}
+                      placeholder="Unit price"
+                      className="col-span-4 sm:col-span-2 h-11 px-3 rounded-lg bg-navy-800/60 border border-white/10 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary-400/60"
+                    />
+                    {/* Line total — read-only, derived from qty × unit price */}
+                    <div
+                      className="col-span-4 sm:col-span-2 h-11 px-3 rounded-lg bg-navy-800/30 border border-white/5 text-sm text-slate-300 flex items-center justify-end tabular-nums"
+                      aria-label="Line total"
+                    >
+                      {formatCurrency(lineTotal, currency)}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => removeItem(idx)}
+                      disabled={items.length === 1}
+                      className="col-span-1 h-11 flex items-center justify-center text-slate-500 hover:text-rose-400 disabled:opacity-30 cursor-pointer"
+                      aria-label="Remove line item"
+                    >
+                      <Trash2 className="size-4" />
+                    </button>
+                  </div>
+                );
+              })}
               <Button type="button" variant="ghost" size="sm" icon={Plus} onClick={addItem}>
                 Add Item
               </Button>

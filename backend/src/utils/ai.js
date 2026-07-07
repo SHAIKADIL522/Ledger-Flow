@@ -1,8 +1,11 @@
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 
+// meta-llama/llama-4-scout:free and google/gemma-3-12b-it:free were removed —
+// OpenRouter sunset their free tiers (confirmed via repeated 404 "This model
+// is unavailable for free" responses). Keep this list to models actually
+// reachable on the free tier; check https://openrouter.ai/models?max_price=0
+// periodically since OpenRouter's free lineup changes without notice.
 const FALLBACK_MODELS = [
-  "meta-llama/llama-4-scout:free",
-  "google/gemma-3-12b-it:free",
   "openai/gpt-oss-20b:free",
   "deepseek/deepseek-r1:free",
 ];

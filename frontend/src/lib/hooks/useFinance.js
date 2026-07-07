@@ -93,3 +93,12 @@ export function useInsights() {
     queryFn:  () => api.get("/dashboard/insights"),
   });
 }
+
+// ── Payments ──────────────────────────────────────────────────────────────────
+
+export function useTransactions() {
+  return useQuery({
+    queryKey: ["payments", "transactions"],
+    queryFn:  () => api.get("/payments/transactions"),
+  });
+}

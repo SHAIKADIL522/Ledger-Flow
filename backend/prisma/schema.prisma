@@ -89,6 +89,7 @@ model User {
   userPreferences    UserPreferences?
   apiKeys            ApiKey[]
   loginSessions      LoginSession[]
+  transactions       Transaction[]
 }
 
 model Client {
@@ -152,6 +153,7 @@ model Invoice {
   notes           String?
   generatedByAI   Boolean       @default(false)
   items           InvoiceItem[]
+  transactions    Transaction[]
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
 
@@ -217,6 +219,30 @@ model AuditLog {
 
   @@index([userId])
   @@index([entity])
+  @@index([createdAt])
+}
+
+// One row per verified gateway payment. Written only from webhooks.routes.js
+// after signature verification — never from the frontend or an order/session
+// creation call — so a row existing here always means money actually moved.
+model Transaction {
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  invoiceId  String
+  invoice    Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  gateway    String   // "razorpay" | "stripe"
+  reference  String   // Razorpay payment id / Stripe payment_intent id
+  amount     Decimal  @db.Decimal(14, 2)
+  currency   String
+  status     String   @default("SUCCESS")
+  createdAt  DateTime @default(now())
+
+  // Same gateway+reference can only ever be recorded once — this is what
+  // makes duplicate webhook deliveries a no-op instead of double-counting.
+  @@unique([gateway, reference])
+  @@index([userId])
+  @@index([invoiceId])
   @@index([createdAt])
 }
 

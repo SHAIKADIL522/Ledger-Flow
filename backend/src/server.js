@@ -5,7 +5,7 @@ const helmet = require("helmet");
 const cookieParser = require("cookie-parser");
 
 const { errorHandler, notFound } = require("./middleware/errorHandler");
-const { generalLimiter, authLimiter, aiLimiter } = require("./middleware/rateLimiter");
+const { generalLimiter, aiLimiter } = require("./middleware/rateLimiter");
 const logger = require("./utils/logger");
 const requestTracker = require("./monitoring/requestTracker");
 
@@ -20,6 +20,7 @@ const reportsRoutes      = require("./routes/reports.routes");
 const notificationsRoutes = require("./routes/notifications.routes");
 const settingsRoutes     = require("./routes/settings.routes");
 const paymentsRoutes     = require("./routes/payments.routes");
+const webhooksRoutes     = require("./routes/webhooks.routes");
 const aiRoutes           = require("./routes/ai.routes");          // NEW
 const healthRoutes       = require("./routes/health.routes");
 const dbHealthRoutes     = require("./routes/db-health.routes");
@@ -36,6 +37,11 @@ app.use(
     credentials: true,
   })
 );
+
+// Webhooks MUST get the raw request body for signature verification, so this
+// has to be registered before the global express.json() body parser below.
+app.use("/api/webhooks", express.raw({ type: "application/json" }), webhooksRoutes);
+
 app.use(express.json({ limit: "2mb" }));
 app.use(cookieParser());
 
@@ -58,7 +64,10 @@ app.use((req, res, next) => {
 });
 
 // ── RATE LIMITERS ─────────────────────────────────────────────────────────────
-app.use("/api/auth", authLimiter);
+// NOTE: authLimiter is NO LONGER applied blanket-wide here. It's applied
+// per-route inside auth.routes.js, only on login/register/verify/resend —
+// NOT on /auth/me or /auth/refresh, which fire on every page load/token
+// cycle and would otherwise share (and exhaust) the same 20-req/15min budget.
 app.use("/api/invoices/ai-draft", aiLimiter);
 app.use("/api/ai", aiLimiter);                                     // NEW — AI chat rate limited
 app.use(generalLimiter);

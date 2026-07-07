@@ -3,12 +3,13 @@
 import { useState } from "react";
 import {
   User, Building2, FileText, Bell, ShieldCheck,
-  Palette, Database, Key, AlertTriangle, ChevronRight,
+  Palette, Database, Key, AlertTriangle, ChevronRight, CreditCard,
 } from "lucide-react";
 import { Card } from "@/components/ui/Primitives";
 import ProfileSection         from "@/components/settings/ProfileSection";
 import BusinessSection        from "@/components/settings/BusinessSection";
 import InvoiceDefaultsSection from "@/components/settings/InvoiceDefaultsSection";
+import PaymentsSection        from "@/components/settings/PaymentsSection";
 import NotificationsSection   from "@/components/settings/NotificationsSection";
 import SecuritySection        from "@/components/settings/SecuritySection";
 import AppearanceSection      from "@/components/settings/AppearanceSection";
@@ -20,6 +21,7 @@ const TABS = [
   { id: "profile",    label: "Profile",          icon: User,          section: ProfileSection },
   { id: "business",   label: "Business",         icon: Building2,     section: BusinessSection },
   { id: "invoice",    label: "Invoice Defaults", icon: FileText,      section: InvoiceDefaultsSection },
+  { id: "payments",   label: "Payments",         icon: CreditCard,    section: PaymentsSection },
   { id: "notifs",     label: "Notifications",    icon: Bell,          section: NotificationsSection },
   { id: "security",   label: "Security",         icon: ShieldCheck,   section: SecuritySection },
   { id: "appearance", label: "Appearance",       icon: Palette,       section: AppearanceSection },
@@ -34,8 +36,11 @@ function TabButton({ tab, active, onClick }) {
     <button
       onClick={() => onClick(tab.id)}
       className={[
-        "w-full flex items-center gap-3 px-4 h-10 rounded-xl text-sm font-medium",
-        "transition-colors text-left cursor-pointer border",
+        // Full width + block on desktop nav; on mobile this same button
+        // is used inside a horizontal scroll strip, so width stays auto there.
+        "w-full md:w-full flex items-center gap-3 px-4 h-10 rounded-xl text-sm font-medium",
+        "transition-colors text-left cursor-pointer border shrink-0",
+        "whitespace-nowrap md:whitespace-normal",
         active
           ? "bg-primary/10 text-primary border-primary/20"
           : tab.danger
@@ -45,7 +50,7 @@ function TabButton({ tab, active, onClick }) {
     >
       <Icon className="size-4 shrink-0" />
       <span className="flex-1 text-left">{tab.label}</span>
-      {active && <ChevronRight className="size-3.5 shrink-0 opacity-60" />}
+      {active && <ChevronRight className="size-3.5 shrink-0 opacity-60 hidden md:block" />}
     </button>
   );
 }
@@ -63,9 +68,19 @@ export default function SettingsPage() {
         </p>
       </div>
 
-      <div className="flex gap-6 items-start">
-        {/* Left nav */}
-        <Card className="w-56 shrink-0 p-3 space-y-1 sticky top-6">
+      {/* Below md: stacked column, nav becomes a horizontal scroll strip.
+          At md and up: original side-by-side layout with sticky sidebar. */}
+      <div className="flex flex-col md:flex-row gap-4 md:gap-6 items-start">
+        {/* Nav */}
+        <Card
+          className="
+            w-full md:w-56 md:shrink-0 md:sticky md:top-6
+            p-2 md:p-3
+            flex md:block
+            gap-1 md:gap-0 md:space-y-1
+            overflow-x-auto md:overflow-visible
+          "
+        >
           {TABS.map((tab) => (
             <TabButton
               key={tab.id}
@@ -77,7 +92,7 @@ export default function SettingsPage() {
         </Card>
 
         {/* Section content */}
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0 w-full">
           <ActiveSection />
         </div>
       </div>

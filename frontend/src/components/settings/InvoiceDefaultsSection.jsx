@@ -35,14 +35,34 @@ export default function InvoiceDefaultsSection() {
       .catch(() => {});
   }, []);
 
-  const f = (k) => (e) =>
-    setForm({ ...form, [k]: e.target.type === "number" ? Number(e.target.value) : e.target.value });
+  const f = (k) => (e) => {
+    if (e.target.type !== "number") {
+      return setForm({ ...form, [k]: e.target.value });
+    }
+    // Allow the field to be genuinely empty while the user is mid-edit —
+    // Number("") === 0 was forcing a "0" back into the box on every clear,
+    // so typing a new value always landed after that reborn "0" instead of
+    // into a blank field. Keep "" as-is; only coerce to a number once the
+    // user has actually typed digits.
+    const raw = e.target.value;
+    setForm({ ...form, [k]: raw === "" ? "" : Number(raw) });
+  };
 
   const save = async (e) => {
     e.preventDefault();
     setSaving(true);
     try {
-      await api.put("/settings/business", form);
+      // Fields can be "" mid-edit now (see f() above) — fall back to the
+      // default rather than sending an empty string to the API.
+      const payload = {
+        ...form,
+        startingNumber: form.startingNumber === "" ? DEFAULTS.startingNumber : form.startingNumber,
+        defaultTax:     form.defaultTax     === "" ? DEFAULTS.defaultTax     : form.defaultTax,
+        lateFee:        form.lateFee        === "" ? DEFAULTS.lateFee        : form.lateFee,
+        paymentTerms:   form.paymentTerms   === "" ? DEFAULTS.paymentTerms   : form.paymentTerms,
+      };
+      await api.put("/settings/business", payload);
+      setForm(payload);
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
     } finally {

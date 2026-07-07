@@ -8,14 +8,25 @@ class ApiError extends Error {
   }
 }
 
-let isRefreshing  = false;
-let refreshQueue  = [];
+let isRefreshing = false;
+// Each queued entry holds resolve/reject so the original caller gets the
+// actual response (or error) once refresh completes — not just undefined.
+let refreshQueue = [];
 
 function flushQueue(error) {
-  refreshQueue.forEach(({ resolve, reject }) =>
-    error ? reject(error) : resolve()
-  );
+  const q = refreshQueue;
   refreshQueue = [];
+  q.forEach(({ resolve, reject }) => (error ? reject(error) : resolve()));
+}
+
+// Single-flight flag so we only redirect once even if many requests fail.
+let redirecting = false;
+function redirectToLogin() {
+  if (redirecting) return;
+  redirecting = true;
+  if (typeof window !== "undefined" && window.location.pathname !== "/login") {
+    window.location.href = "/login";
+  }
 }
 
 async function refreshAccessToken() {
@@ -23,6 +34,12 @@ async function refreshAccessToken() {
     method:      "POST",
     credentials: "include",
   });
+
+  // Rate-limited — this is NOT a session failure. Don't treat it as one.
+  if (res.status === 429) {
+    throw new ApiError("Too many requests. Please wait a moment and try again.", 429);
+  }
+
   if (!res.ok) throw new ApiError("Session expired. Please login again.", 401);
 }
 
@@ -49,30 +66,36 @@ async function request(
     data = null;
   }
 
-  // 401 → refresh once then retry
+  // 401 → attempt token refresh exactly once, then retry original request.
   if (res.status === 401 && retry) {
+    // Another request is already refreshing — join the queue and wait.
+    // When refresh resolves, re-fire this request ourselves (don't rely on
+    // the queue flush to return the response — it can't, promises resolve void).
     if (isRefreshing) {
-      return new Promise((resolve, reject) => {
-        refreshQueue.push({ resolve, reject });
-      }).then(() => request(path, { method, body, headers }, false));
+      await new Promise((resolve, reject) =>
+        refreshQueue.push({ resolve, reject })
+      );
+      // Refresh succeeded (otherwise the promise above threw) — retry once.
+      return request(path, { method, body, headers }, false);
     }
 
     isRefreshing = true;
     try {
       await refreshAccessToken();
       flushQueue(null);
+      // Retry this request now that we have a fresh access token.
       return request(path, { method, body, headers }, false);
     } catch (err) {
       flushQueue(err);
-      if (
-        typeof window !== "undefined" &&
-        window.location.pathname !== "/login"
-      ) {
-        window.location.href = "/login";
-      }
-      throw new ApiError("Session expired. Please login again.", 401);
+      // Only redirect to /login on an actual auth failure. A 429 (rate
+      // limit) or any other transient error should surface to the caller
+      // instead of nuking the session and bouncing the user out.
+      if (err.status === 401) redirectToLogin();
+      throw err;
     } finally {
-      isRefreshing = false;
+      // Reset only after flush + retry so any new 401 that arrives while
+      // this request re-fires doesn't kick off a second refresh race.
+      isRefreshing  = false;
     }
   }
 
@@ -88,11 +111,11 @@ async function request(
 }
 
 export const api = {
-  get:    (path)        => request(path),
-  post:   (path, body)  => request(path, { method: "POST",   body }),
-  put:    (path, body)  => request(path, { method: "PUT",    body }),
-  patch:  (path, body)  => request(path, { method: "PATCH",  body }),
-  delete: (path, body)  => request(path, { method: "DELETE", body }), // body optional
+  get:    (path)       => request(path),
+  post:   (path, body) => request(path, { method: "POST",   body }),
+  put:    (path, body) => request(path, { method: "PUT",    body }),
+  patch:  (path, body) => request(path, { method: "PATCH",  body }),
+  delete: (path, body) => request(path, { method: "DELETE", body }),
 };
 
 export { ApiError, API_URL };

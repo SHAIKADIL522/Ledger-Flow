@@ -21,6 +21,74 @@ function toDateInput(iso) {
   return new Date(iso).toISOString().split("T")[0];
 }
 
+// ── Shared form fields ─────────────────────────────────────────────────────
+// Hoisted to module scope (was previously defined INSIDE ProjectsPage). A
+// component defined inside another component's render body gets a brand-new
+// function identity on every re-render — React then treats it as a totally
+// new component type and unmounts/remounts the whole <form>, including every
+// <input> DOM node, on every keystroke. That stole focus after each
+// character, which is why typing multi-digit values (e.g. Budget "50000")
+// only ever registered the first digit. Now it's a stable, top-level
+// component that receives form state via props instead of closing over it.
+function ProjectForm({ form, setForm, clients, onSubmit, loading, submitLabel }) {
+  return (
+    <form onSubmit={onSubmit} className="space-y-4">
+      <Select
+        label="Client"
+        required
+        placeholder="Select a client"
+        value={form.clientId}
+        onChange={(e) => setForm({ ...form, clientId: e.target.value })}
+        options={clients.map((c) => ({ value: c.id, label: c.companyName }))}
+      />
+      <Input
+        label="Project Name"
+        required
+        value={form.name}
+        onChange={(e) => setForm({ ...form, name: e.target.value })}
+      />
+      <Input
+        label="Description"
+        value={form.description}
+        onChange={(e) => setForm({ ...form, description: e.target.value })}
+      />
+      <div className="grid grid-cols-2 gap-4">
+        <Input
+          label="Budget"
+          type="number"
+          min="0"
+          value={form.budget}
+          onChange={(e) => setForm({ ...form, budget: e.target.value })}
+        />
+        <Select
+          label="Currency"
+          value={form.currency}
+          onChange={(e) => setForm({ ...form, currency: e.target.value })}
+          options={CURRENCIES.map((c) => ({ value: c, label: c }))}
+        />
+      </div>
+      {/* Date wrapper — overflow visible so calendar popup isn't clipped */}
+      <div style={{ overflow: "visible", position: "relative" }}>
+        <Input
+          label="Deadline"
+          type="date"
+          value={form.deadline}
+          onChange={(e) => setForm({ ...form, deadline: e.target.value })}
+        />
+      </div>
+      <Select
+        label="Status"
+        value={form.status}
+        onChange={(e) => setForm({ ...form, status: e.target.value })}
+        options={STATUS_OPTIONS.map((s) => ({ value: s, label: s.charAt(0) + s.slice(1).toLowerCase().replace("_", " ") }))}
+      />
+      <Button type="submit" className="w-full" loading={loading}>
+        {submitLabel}
+      </Button>
+    </form>
+  );
+}
+
 export default function ProjectsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -93,64 +161,6 @@ export default function ProjectsPage() {
     setEditOpen(false);
     setEditTarget(null);
   };
-
-  // ── Shared form fields ───────────────────────────────────────────────────
-  const ProjectForm = ({ onSubmit, loading, submitLabel }) => (
-    <form onSubmit={onSubmit} className="space-y-4">
-      <Select
-        label="Client"
-        required
-        placeholder="Select a client"
-        value={form.clientId}
-        onChange={(e) => setForm({ ...form, clientId: e.target.value })}
-        options={clients.map((c) => ({ value: c.id, label: c.companyName }))}
-      />
-      <Input
-        label="Project Name"
-        required
-        value={form.name}
-        onChange={(e) => setForm({ ...form, name: e.target.value })}
-      />
-      <Input
-        label="Description"
-        value={form.description}
-        onChange={(e) => setForm({ ...form, description: e.target.value })}
-      />
-      <div className="grid grid-cols-2 gap-4">
-        <Input
-          label="Budget"
-          type="number"
-          min="0"
-          value={form.budget}
-          onChange={(e) => setForm({ ...form, budget: e.target.value })}
-        />
-        <Select
-          label="Currency"
-          value={form.currency}
-          onChange={(e) => setForm({ ...form, currency: e.target.value })}
-          options={CURRENCIES.map((c) => ({ value: c, label: c }))}
-        />
-      </div>
-      {/* Date wrapper — overflow visible so calendar popup isn't clipped */}
-      <div style={{ overflow: "visible", position: "relative" }}>
-        <Input
-          label="Deadline"
-          type="date"
-          value={form.deadline}
-          onChange={(e) => setForm({ ...form, deadline: e.target.value })}
-        />
-      </div>
-      <Select
-        label="Status"
-        value={form.status}
-        onChange={(e) => setForm({ ...form, status: e.target.value })}
-        options={STATUS_OPTIONS.map((s) => ({ value: s, label: s.charAt(0) + s.slice(1).toLowerCase().replace("_", " ") }))}
-      />
-      <Button type="submit" className="w-full" loading={loading}>
-        {submitLabel}
-      </Button>
-    </form>
-  );
 
   return (
     <div className="space-y-6">
@@ -237,6 +247,9 @@ export default function ProjectsPage() {
           />
         ) : (
           <ProjectForm
+            form={form}
+            setForm={setForm}
+            clients={clients}
             onSubmit={handleCreate}
             loading={createProject.isPending}
             submitLabel="Create Project"
@@ -247,6 +260,9 @@ export default function ProjectsPage() {
       {/* ── EDIT MODAL ── */}
       <Modal open={editOpen} onClose={() => setEditOpen(false)} title="Edit Project">
         <ProjectForm
+          form={form}
+          setForm={setForm}
+          clients={clients}
           onSubmit={handleEdit}
           loading={updateProject.isPending}
           submitLabel="Save Changes"

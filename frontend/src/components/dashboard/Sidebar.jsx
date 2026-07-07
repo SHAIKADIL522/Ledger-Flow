@@ -8,6 +8,7 @@ import {
   FolderKanban,
   FileText,
   Receipt,
+  CreditCard,
   BarChart3,
   Settings,
   Bot,
@@ -23,6 +24,7 @@ const NAV = [
   { href: "/dashboard/projects", label: "Projects",  icon: FolderKanban },
   { href: "/dashboard/invoices", label: "Invoices",  icon: FileText },
   { href: "/dashboard/expenses", label: "Expenses",  icon: Receipt },
+  { href: "/dashboard/payments", label: "Payments",  icon: CreditCard },
   { href: "/dashboard/reports",  label: "Reports",   icon: BarChart3 },
   { href: "/dashboard/settings", label: "Settings",  icon: Settings },
 ];
