@@ -31,9 +31,32 @@ const app = express();
 
 // ── SECURITY ──────────────────────────────────────────────────────────────────
 app.use(helmet({ crossOriginEmbedderPolicy: false }));
+
+// Allow the stable production frontend URL (CLIENT_URL), localhost for dev,
+// and any Vercel per-deployment preview URL for this project — Vercel mints
+// a new unique subdomain (ledger-flow-<hash>-shaikadil522s-projects.vercel.app)
+// on every deploy, so a single hardcoded origin breaks previews/redeploys.
+const allowedOrigins = [
+  process.env.CLIENT_URL,
+  "http://localhost:3000",
+].filter(Boolean);
+
 app.use(
   cors({
-    origin: [process.env.CLIENT_URL || "http://localhost:3000"],
+    origin: function (origin, callback) {
+      if (!origin) return callback(null, true); // non-browser tools (curl, Postman, server-to-server)
+
+      const isAllowed =
+        allowedOrigins.includes(origin) ||
+        /^https:\/\/ledger-flow-[a-z0-9]+-shaikadil522s-projects\.vercel\.app$/.test(origin);
+
+      if (isAllowed) {
+        callback(null, true);
+      } else {
+        logger.warn(`Blocked by CORS: ${origin}`);
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
     credentials: true,
   })
 );
