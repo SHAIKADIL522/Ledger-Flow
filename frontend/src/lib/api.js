@@ -1,5 +1,17 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
 
+// Endpoints that should NEVER trigger the refresh-and-retry interceptor.
+// A 401 from these means "bad credentials" or "no session yet" —
+// not "access token expired", so auto-refreshing on them is wrong
+// and masks the real error message.
+const AUTH_BYPASS_PATHS = [
+  "/auth/login",
+  "/auth/register",
+  "/auth/refresh",
+  "/auth/verify-email",
+  "/auth/resend-otp",
+];
+
 class ApiError extends Error {
   constructor(message, status, details) {
     super(message);
@@ -66,8 +78,12 @@ async function request(
     data = null;
   }
 
+  const isAuthBypass = AUTH_BYPASS_PATHS.includes(path);
+
   // 401 → attempt token refresh exactly once, then retry original request.
-  if (res.status === 401 && retry) {
+  // Skipped entirely for auth endpoints: a 401 there is a real credential/
+  // verification failure, not an expired access token.
+  if (res.status === 401 && retry && !isAuthBypass) {
     // Another request is already refreshing — join the queue and wait.
     // When refresh resolves, re-fire this request ourselves (don't rely on
     // the queue flush to return the response — it can't, promises resolve void).
