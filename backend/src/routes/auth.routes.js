@@ -27,8 +27,8 @@ const passwordMsg =
 
 const cookieOpts = (maxAgeMs) => ({
   httpOnly: true,
-  secure: process.env.NODE_ENV === "production",
-  sameSite: "lax",
+  secure: true,           // required when sameSite is "none"
+  sameSite: "none",       // required for cross-origin cookies
   maxAge: maxAgeMs,
   path: "/",
 });
