@@ -183,6 +183,9 @@ async function buildHtml({ invoice, user, client, calc, qrDataUrl, size }) {
 
   const txnRef = `TXN-${String(invoice.invoiceNumber || invoice.id || "").replace(/[^A-Za-z0-9]/g, "").toUpperCase()}`;
   const gateway = user?.paymentGateway || "Razorpay";
+  // Real invoice detail page (has the Pay Now button), not a fake external
+  // domain — CLIENT_URL is the same var used elsewhere for redirects.
+  const payUrl = `${process.env.CLIENT_URL || "http://localhost:3000"}/dashboard/invoices/${invoice.id}`;
   const paidCard = status === "PAID" ? `
     <div class="paid-card">
       <div class="paid-check">${CHECK_SVG}</div>
@@ -421,8 +424,8 @@ ${paidCard}
   <div class="pay-card">
     <div class="pt">🌐 Pay Online</div>
     <p class="ps">Pay securely using the link below:</p>
-    <a class="pay-btn" href="https://ledgerflow.app/pay/${invoice.invoiceNumber}">Pay Now →</a>
-    <span class="pl">https://ledgerflow.app/pay/${invoice.invoiceNumber}</span>
+    <a class="pay-btn" href="${payUrl}">Pay Now →</a>
+    <span class="pl">${payUrl}</span>
     <div class="pp"><span>Powered by</span><span class="rp">⚡ ${gateway}</span></div>
   </div>
 </div>

@@ -104,6 +104,18 @@ router.post(
       }
     }
 
+    // Refund confirmation — /payments/refund already flips this synchronously,
+    // so this is a no-op unless the refund was issued outside the app
+    // (e.g. directly from the Razorpay dashboard).
+    if (event.event === "refund.processed") {
+      const payment = event.payload?.payment?.entity;
+      if (payment?.id) {
+        await prisma.transaction
+          .updateMany({ where: { gateway: "razorpay", reference: payment.id }, data: { status: "REFUNDED" } })
+          .catch((err) => logger.error({ err }, "razorpay refund webhook update failed"));
+      }
+    }
+
     // Always 200 once signature is verified — Razorpay retries on non-2xx.
     res.json({ received: true });
   })
@@ -139,6 +151,17 @@ router.post(
         });
       } else {
         logger.warn({ sessionId: session.id }, "Stripe webhook missing invoiceId in metadata");
+      }
+    }
+
+    // Refund confirmation — /payments/refund already flips this synchronously;
+    // this covers refunds issued directly from the Stripe dashboard.
+    if (event.type === "charge.refunded") {
+      const charge = event.data.object;
+      if (charge.payment_intent) {
+        await prisma.transaction
+          .updateMany({ where: { gateway: "stripe", reference: charge.payment_intent }, data: { status: "REFUNDED" } })
+          .catch((err) => logger.error({ err }, "stripe refund webhook update failed"));
       }
     }
 

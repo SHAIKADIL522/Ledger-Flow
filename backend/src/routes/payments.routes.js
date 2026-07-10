@@ -133,12 +133,28 @@ router.get(
 );
 
 // ---------- TRANSACTION HISTORY ----------
+// Supports ?status=SUCCESS|REFUNDED, ?gateway=razorpay|stripe, and
+// ?search= (matches invoice number or client company name) so the
+// frontend can filter without pulling the whole history each time.
 router.get(
   "/transactions",
   asyncHandler(async (req, res) => {
-    const take = Math.min(Number(req.query.limit) || 50, 100);
+    const take = Math.min(Number(req.query.limit) || 100, 200);
+    const { status, gateway, search } = req.query;
+
+    const where = { userId: req.userId };
+    if (status) where.status = status;
+    if (gateway) where.gateway = gateway;
+    if (search) {
+      where.OR = [
+        { reference: { contains: search, mode: "insensitive" } },
+        { invoice: { invoiceNumber: { contains: search, mode: "insensitive" } } },
+        { invoice: { client: { companyName: { contains: search, mode: "insensitive" } } } },
+      ];
+    }
+
     const transactions = await prisma.transaction.findMany({
-      where: { userId: req.userId },
+      where,
       include: {
         invoice: { select: { id: true, invoiceNumber: true, client: { select: { companyName: true } } } },
       },
@@ -146,6 +162,142 @@ router.get(
       take,
     });
     res.json({ transactions });
+  })
+);
+
+// ---------- EXPORT CSV ----------
+// Same filters as /transactions, streamed back as a CSV instead of JSON.
+router.get(
+  "/transactions/export",
+  asyncHandler(async (req, res) => {
+    const { status, gateway, search } = req.query;
+    const where = { userId: req.userId };
+    if (status) where.status = status;
+    if (gateway) where.gateway = gateway;
+    if (search) {
+      where.OR = [
+        { reference: { contains: search, mode: "insensitive" } },
+        { invoice: { invoiceNumber: { contains: search, mode: "insensitive" } } },
+        { invoice: { client: { companyName: { contains: search, mode: "insensitive" } } } },
+      ];
+    }
+
+    const transactions = await prisma.transaction.findMany({
+      where,
+      include: {
+        invoice: { select: { invoiceNumber: true, client: { select: { companyName: true } } } },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 5000,
+    });
+
+    const escape = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+    const header = ["Date", "Invoice", "Client", "Gateway", "Reference", "Amount", "Currency", "Status"];
+    const rows = transactions.map((t) =>
+      [
+        t.createdAt.toISOString(),
+        t.invoice?.invoiceNumber || "",
+        t.invoice?.client?.companyName || "",
+        t.gateway,
+        t.reference,
+        t.amount,
+        t.currency,
+        t.status,
+      ]
+        .map(escape)
+        .join(",")
+    );
+    const csv = [header.map(escape).join(","), ...rows].join("\n");
+
+    res.setHeader("Content-Type", "text/csv");
+    res.setHeader("Content-Disposition", `attachment; filename="transactions-${Date.now()}.csv"`);
+    res.send(csv);
+  })
+);
+
+// ---------- RECEIPT (JSON — printable from the frontend, no new PDF work) ----------
+router.get(
+  "/transactions/:id/receipt",
+  asyncHandler(async (req, res) => {
+    const txn = await prisma.transaction.findFirst({
+      where: { id: req.params.id, userId: req.userId },
+      include: {
+        invoice: {
+          select: {
+            invoiceNumber: true,
+            total: true,
+            currency: true,
+            client: { select: { companyName: true, email: true } },
+          },
+        },
+      },
+    });
+    if (!txn) return res.status(404).json({ error: "Transaction not found" });
+    res.json({
+      receipt: {
+        transactionId: txn.id,
+        gateway: txn.gateway,
+        reference: txn.reference,
+        amount: txn.amount,
+        currency: txn.currency,
+        status: txn.status,
+        paidAt: txn.createdAt,
+        invoiceNumber: txn.invoice.invoiceNumber,
+        billedTo: txn.invoice.client?.companyName,
+      },
+    });
+  })
+);
+
+// ---------- REFUND ----------
+// Only ever full-amount refunds against a recorded Transaction — partial
+// refunds would desync invoice.status from what actually happened and are
+// intentionally out of scope here.
+router.post(
+  "/refund",
+  asyncHandler(async (req, res) => {
+    const { transactionId } = req.body || {};
+    if (!transactionId) return res.status(400).json({ error: "transactionId is required" });
+
+    const txn = await prisma.transaction.findFirst({
+      where: { id: transactionId, userId: req.userId },
+      include: { invoice: true },
+    });
+    if (!txn) return res.status(404).json({ error: "Transaction not found" });
+    if (txn.status === "REFUNDED") return res.status(409).json({ error: "Already refunded" });
+
+    if (txn.gateway === "razorpay") {
+      if (!keysConfigured(process.env.RAZORPAY_KEY_ID, process.env.RAZORPAY_KEY_SECRET)) {
+        return res.status(503).json({ error: "Razorpay isn't configured." });
+      }
+      const Razorpay = require("razorpay");
+      const razorpay = new Razorpay({
+        key_id: process.env.RAZORPAY_KEY_ID,
+        key_secret: process.env.RAZORPAY_KEY_SECRET,
+      });
+      await razorpay.payments.refund(txn.reference, {
+        amount: toSmallestUnit(txn.amount),
+      });
+    } else if (txn.gateway === "stripe") {
+      if (!keysConfigured(process.env.STRIPE_SECRET_KEY)) {
+        return res.status(503).json({ error: "Stripe isn't configured." });
+      }
+      const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
+      await stripe.refunds.create({ payment_intent: txn.reference });
+    } else {
+      return res.status(400).json({ error: `Unknown gateway: ${txn.gateway}` });
+    }
+
+    // Refund confirmation normally also arrives via webhook (refund.processed /
+    // charge.refunded) — this is the synchronous, user-visible mark so the
+    // dashboard reflects it immediately instead of waiting on a retry-prone webhook.
+    await prisma.$transaction([
+      prisma.transaction.update({ where: { id: txn.id }, data: { status: "REFUNDED" } }),
+      prisma.invoice.update({ where: { id: txn.invoiceId }, data: { status: "SENT", paidAt: null } }),
+    ]);
+
+    logger.info({ transactionId: txn.id, gateway: txn.gateway }, "refund issued");
+    res.json({ ok: true });
   })
 );
 

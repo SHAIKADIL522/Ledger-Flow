@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
-import { useParams, useRouter } from "next/navigation";
-import { Download, Printer, Mail, ArrowLeft, Sparkles, Trash2 } from "lucide-react";
+import { useState, Suspense } from "react";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { Download, Printer, Mail, ArrowLeft, Sparkles, Trash2, CheckCircle2, XCircle } from "lucide-react";
 import { Card, Badge } from "@/components/ui/Primitives";
 import Button from "@/components/ui/Button";
+import PayInvoiceButton from "@/components/invoices/PayInvoiceButton";
 import { useInvoice, useUpdateInvoiceStatus, useDeleteInvoice, invoicePdfUrl } from "@/lib/hooks/useInvoices";
 import { formatCurrency, formatDate } from "@/lib/format";
 
@@ -61,9 +62,22 @@ function DeleteModal({ invoiceNumber, onConfirm, onCancel, isLoading }) {
 }
 
 // ── Main detail page ───────────────────────────────────────────────────────
+// useSearchParams() requires a Suspense boundary in the App Router — the
+// export below wraps the real component so the ?payment=success/cancelled
+// banner (added for Stripe's redirect back) doesn't break static builds.
 export default function InvoiceDetailPage() {
+  return (
+    <Suspense fallback={<div className="h-96 animate-pulse bg-white/5 rounded-2xl" />}>
+      <InvoiceDetailPageInner />
+    </Suspense>
+  );
+}
+
+function InvoiceDetailPageInner() {
   const { id } = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const paymentResult = searchParams.get("payment"); // "success" | "cancelled" | null
   const [showDelete, setShowDelete] = useState(false);
 
   const { data, isLoading } = useInvoice(id);
@@ -113,6 +127,19 @@ export default function InvoiceDetailPage() {
         <ArrowLeft className="size-4" /> Back to Invoices
       </button>
 
+      {paymentResult === "success" && (
+        <div className="flex items-center gap-2 px-4 py-3 rounded-lg bg-primary/10 border border-primary/20 text-primary text-sm print:hidden">
+          <CheckCircle2 className="size-4 shrink-0" />
+          Payment completed. Status updates automatically once the gateway confirms — refresh in a moment if it still shows unpaid.
+        </div>
+      )}
+      {paymentResult === "cancelled" && (
+        <div className="flex items-center gap-2 px-4 py-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm print:hidden">
+          <XCircle className="size-4 shrink-0" />
+          Payment was cancelled. No charge was made.
+        </div>
+      )}
+
       <div className="flex items-center justify-between flex-wrap gap-4 print:hidden">
         <div className="flex items-center gap-3">
           <h1 className="text-2xl font-bold text-white">{invoice.invoiceNumber}</h1>
@@ -154,6 +181,7 @@ export default function InvoiceDetailPage() {
           <a href={invoicePdfUrl(invoice.id, pageSize)} target="_blank" rel="noopener noreferrer">
             <Button icon={Download}>Download PDF</Button>
           </a>
+          <PayInvoiceButton invoice={invoice} />
           <Button
             variant="ghost"
             icon={Mail}
