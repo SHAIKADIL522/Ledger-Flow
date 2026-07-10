@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { api } from "@/lib/api";
+import { api, API_URL } from "@/lib/api";
 
 // ── Expenses ──────────────────────────────────────────────────────────────────
 
@@ -96,9 +96,27 @@ export function useInsights() {
 
 // ── Payments ──────────────────────────────────────────────────────────────────
 
-export function useTransactions() {
+export function useTransactions(filters = {}) {
+  const params = new URLSearchParams(filters).toString();
   return useQuery({
-    queryKey: ["payments", "transactions"],
-    queryFn:  () => api.get("/payments/transactions"),
+    queryKey: ["payments", "transactions", filters],
+    queryFn:  () => api.get(`/payments/transactions${params ? `?${params}` : ""}`),
+  });
+}
+
+export function transactionsExportUrl(filters = {}) {
+  const params = new URLSearchParams(filters).toString();
+  return `${API_URL}/payments/transactions/export${params ? `?${params}` : ""}`;
+}
+
+export function useRefundTransaction() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (transactionId) => api.post("/payments/refund", { transactionId }),
+    onSuccess:  () => {
+      qc.invalidateQueries({ queryKey: ["payments", "transactions"] });
+      qc.invalidateQueries({ queryKey: ["invoices"] });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
+    },
   });
 }
